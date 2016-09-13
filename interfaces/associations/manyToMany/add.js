@@ -127,6 +127,77 @@ describe('Association Interface', function() {
         });
       });
     });
+    describe('testing the .add and .remove method with an id', function() {
 
+      /////////////////////////////////////////////////////
+      // TEST SETUP
+      ////////////////////////////////////////////////////
+
+      var driverRecord, taxiRecord, taxiRecord2, taxiRecord3;
+
+      before(function(done) {
+        Associations.Driver.create({ name: 'manymany add' })
+        .exec(function(err, model) {
+          if(err) return done(err);
+          driverRecord = model;
+
+          Associations.Taxi.create([{ medallion: 20 }, { medallion: 30 }, {medallion: 40}])
+          .exec(function(err, taxis) {
+            if(err) return done(err);
+            
+            taxiRecord = taxis[0];
+            taxiRecord2 = taxis[1];
+            taxiRecord3 = taxis[2];
+            done();
+          });
+        });
+      });
+
+      /////////////////////////////////////////////////////
+      // TEST METHODS
+      ////////////////////////////////////////////////////
+
+      it('should link the last taxi record finally', function(done) {
+        
+        driverRecord.taxis.add([taxiRecord.id,taxiRecord2.id, taxiRecord3.id]);
+        driverRecord.taxis.remove([taxiRecord.id]);
+        driverRecord.save(function(err) {
+          assert.ifError(err);
+
+          // Look up the driver again to be sure the taxi was added
+          Associations.Driver.findOne(driverRecord.id)
+          .populate('taxis', { medallion: 40 })
+          .exec(function(err, data) {
+            assert.ifError(err);
+
+            assert.strictEqual(data.taxis.length, 1);
+            assert.strictEqual(data.taxis[0].medallion, 40);
+            done();
+          });
+        });
+      });
+
+      it('should link the all three taxi records finally', function(done) {
+        Associations.Driver.findOne(driverRecord.id)
+        .populate('taxis')
+        .exec(function(err, driver) {
+          driver.taxis.remove(taxiRecord3.id);
+          driver.taxis.add([taxiRecord.id, taxiRecord3.id]);
+          driver.save(function(err) {
+            assert.ifError(err);
+
+            // Look up the driver again to be sure the taxi was added
+            Associations.Driver.findOne(driverRecord.id)
+            .populate('taxis')
+            .exec(function(err, data) {
+              assert.ifError(err);
+
+              assert.strictEqual(data.taxis.length, 3);
+              done();
+            });
+          });
+        });
+      });
+    });
   });
 });
